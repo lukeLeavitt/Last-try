@@ -1,0 +1,324 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Snake Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #ffffff;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 30px;
+    }
+
+    .container {
+      display: flex;
+      gap: 40px;
+    }
+
+    .sidebar {
+      width: 200px;
+      text-align: left;
+    }
+
+    .instructions {
+      background-color: #f4f4f4;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 8px;
+    }
+
+    .game-area {
+      text-align: center;
+    }
+
+    #game-board {
+      width: 400px;
+      height: 400px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(20, 20px);
+      grid-template-rows: repeat(20, 20px);
+      border: 4px solid #444;
+      background-image:
+        linear-gradient(45deg, #eee 25%, transparent 25%),
+        linear-gradient(-45deg, #eee 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #eee 75%),
+        linear-gradient(-45deg, transparent 75%, #eee 75%);
+      background-size: 40px 40px;
+      background-position: 0 0, 0 20px, 20px -20px, -20px 0px;
+    }
+
+    .snake {
+      background-color: #4caf50;
+    }
+
+    .food {
+      background-color: red;
+    }
+
+    #score, #timer {
+      font-size: 1.2rem;
+      margin-top: 10px;
+    }
+
+    .buttons {
+      margin-top: 20px;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: 5px;
+      border: none;
+      background-color: #4caf50;
+      color: white;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    #high-scores {
+      margin-top: 20px;
+    }
+
+    ol {
+      padding-left: 20px;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Instructions Sidebar -->
+  <div class="sidebar">
+    <div class="instructions">
+      <h3>🎮 How to Play</h3>
+      <ul>
+        <li>Click <strong>Start Game</strong> to begin</li>
+        <li>Use your <strong>Arrow Keys</strong> to control the snake</li>
+        <li>Eat the red squares to score points</li>
+        <li>Game ends if:
+          <ul>
+            <li>You hit the wall</li>
+            <li>You hit yourself</li>
+            <li>⏱️ Time runs out (60s)</li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Game Area -->
+  <div class="game-area">
+    <h1>🐍 Snake Game</h1>
+    <div id="game-board"></div>
+    <p id="score">Score: 0</p>
+    <p id="timer">Time Left: 60s</p>
+
+    <div class="buttons">
+      <button id="start-button">Start Game</button>
+      <button id="restart-button" style="display:none;">Restart Game</button>
+      <button id="end-button" style="display:none;">End Game</button>
+    </div>
+
+    <div id="high-scores">
+      <h3>🏆 Top Scores</h3>
+      <ol id="score-list"></ol>
+    </div>
+  </div>
+</div>
+
+<script>
+  const board = document.getElementById('game-board');
+  const scoreDisplay = document.getElementById('score');
+  const timerDisplay = document.getElementById('timer');
+  const startButton = document.getElementById('start-button');
+  const restartButton = document.getElementById('restart-button');
+  const endButton = document.getElementById('end-button');
+  const scoreList = document.getElementById('score-list');
+
+  const boardSize = 20;
+  let snake, direction, food, score, gameInterval, timerInterval, timeLeft;
+  let gameStarted = false;
+  let moveStarted = false;
+
+  function initGame() {
+    snake = [{ x: 10, y: 10 }];
+    direction = { x: 0, y: 0 };
+    food = { x: 5, y: 5 };
+    score = 0;
+    timeLeft = 60;
+    moveStarted = false;
+    updateScore();
+    updateTimerDisplay();
+    board.innerHTML = '';
+    draw();
+  }
+
+  function startGame() {
+    initGame();
+    gameStarted = true;
+    startButton.style.display = 'none';
+    restartButton.style.display = 'inline-block';
+    endButton.style.display = 'inline-block';
+    timerInterval = setInterval(updateTimer, 1000);
+  }
+
+  function restartGame() {
+    clearInterval(gameInterval);
+    clearInterval(timerInterval);
+    startGame();
+  }
+
+  function endGame(message = "Game Over") {
+    clearInterval(gameInterval);
+    clearInterval(timerInterval);
+    saveHighScore(score);
+    alert(`${message}\nFinal Score: ${score}`);
+    startButton.style.display = 'inline-block';
+    restartButton.style.display = 'none';
+    endButton.style.display = 'none';
+    gameStarted = false;
+  }
+
+  function updateScore() {
+    scoreDisplay.textContent = "Score: " + score;
+  }
+
+  function updateTimerDisplay() {
+    timerDisplay.textContent = "Time Left: " + timeLeft + "s";
+  }
+
+  function updateTimer() {
+    if (timeLeft > 0) {
+      timeLeft--;
+      updateTimerDisplay();
+    } else {
+      endGame("⏰ Time's up!");
+    }
+  }
+
+  function gameLoop() {
+    const head = {
+      x: snake[0].x + direction.x,
+      y: snake[0].y + direction.y
+    };
+
+    if (
+      head.x < 0 || head.y < 0 ||
+      head.x >= boardSize || head.y >= boardSize ||
+      snake.some(segment => segment.x === head.x && segment.y === head.y)
+    ) {
+      endGame("💀 You crashed!");
+      return;
+    }
+
+    snake.unshift(head);
+
+    if (head.x === food.x && head.y === food.y) {
+      score++;
+      updateScore();
+      placeFood();
+    } else {
+      snake.pop();
+    }
+
+    draw();
+  }
+
+  function draw() {
+    board.innerHTML = '';
+    snake.forEach(part => {
+      const div = document.createElement('div');
+      div.style.gridColumnStart = part.x + 1;
+      div.style.gridRowStart = part.y + 1;
+      div.classList.add('snake');
+      board.appendChild(div);
+    });
+
+    const foodEl = document.createElement('div');
+    foodEl.style.gridColumnStart = food.x + 1;
+    foodEl.style.gridRowStart = food.y + 1;
+    foodEl.classList.add('food');
+    board.appendChild(foodEl);
+  }
+
+  function placeFood() {
+    let newFood;
+    do {
+      newFood = {
+        x: Math.floor(Math.random() * boardSize),
+        y: Math.floor(Math.random() * boardSize)
+      };
+    } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
+    food = newFood;
+  }
+
+  window.addEventListener('keydown', e => {
+    if (!gameStarted) return;
+    const key = e.key;
+    let newDir = { ...direction };
+
+    switch (key) {
+      case 'ArrowUp':
+        if (direction.y !== 1) newDir = { x: 0, y: -1 };
+        break;
+      case 'ArrowDown':
+        if (direction.y !== -1) newDir = { x: 0, y: 1 };
+        break;
+      case 'ArrowLeft':
+        if (direction.x !== 1) newDir = { x: -1, y: 0 };
+        break;
+      case 'ArrowRight':
+        if (direction.x !== -1) newDir = { x: 1, y: 0 };
+        break;
+    }
+
+    if (!moveStarted && (newDir.x !== 0 || newDir.y !== 0)) {
+      direction = newDir;
+      moveStarted = true;
+      gameInterval = setInterval(gameLoop, 150);
+    } else {
+      direction = newDir;
+    }
+  });
+
+  startButton.addEventListener('click', startGame);
+  restartButton.addEventListener('click', restartGame);
+  endButton.addEventListener('click', () => endGame("You ended the game"));
+
+  // High Score Functions
+  function saveHighScore(score) {
+    let scores = JSON.parse(localStorage.getItem("snakeHighScores")) || [];
+    scores.push(score);
+    scores.sort((a, b) => b - a);
+    scores = scores.slice(0, 5);
+    localStorage.setItem("snakeHighScores", JSON.stringify(scores));
+    displayHighScores();
+  }
+
+  function displayHighScores() {
+    const scores = JSON.parse(localStorage.getItem("snakeHighScores")) || [];
+    scoreList.innerHTML = '';
+    scores.forEach((s, i) => {
+      const item = document.createElement('li');
+      item.textContent = `#${i + 1} – ${s} pts`;
+      scoreList.appendChild(item);
+    });
+  }
+
+  displayHighScores(); // Show on page load
+</script>
+
+<a href="../index.html" class="Scratch page">⬅️ Back to Main Page</a>
+
+</body>
+</html>
